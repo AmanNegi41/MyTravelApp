@@ -1,0 +1,207 @@
+﻿@model List<MyTravelApp.Web.Models.BookingViewModel>
+
+@{
+    ViewData["Title"] = "Travel Operations Command Center";
+}
+
+<header>
+<nav class="navbar navbar-expand-lg bg-body-tertiary">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#">Navbar</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+            <div class="navbar-nav">
+                <a class="nav-link active" aria-current="page" href="#">Home</a>
+                <a class="nav-link" href="#">Features</a>
+                <a class="nav-link" href="#">Pricing</a>
+                <a class="nav-link disabled" aria-disabled="true">Disabled</a>
+            </div>
+        </div>
+    </div>
+</nav>
+</header>
+<body>
+
+<div class="container-fluid px-4 py-3">
+    <!-- Dashboard Header -->
+    <div class="d-flex justify-content-between align-items-center pb-2 mb-4 border-bottom">
+        <h1 class="h3 text-dark font-weight-bold">Travel Operations Dashboard</h1>
+        <span class="badge bg-secondary p-2">System Time: 2026</span>
+    </div>
+
+    <!-- Top Row: Enterprise KPI Summary Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-4">
+            <div class="card border-start border-success border-4 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted text-uppercase small font-weight-bold">Today's Revenue</h6>
+                    <h2 class="text-success mb-0">₹1,24,500.00</h2>
+                    <small class="text-muted">Settled via Stripe</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card border-start border-primary border-4 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted text-uppercase small font-weight-bold">Active Bookings</h6>
+                    <h2 class="text-primary mb-0">142 Tickets</h2>
+                    <small class="text-muted">Synced with Flight API</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card border-start border-danger border-4 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted text-uppercase small font-weight-bold">API Gateway Alerts</h6>
+                    <h2 class="text-danger mb-0">3 Failures</h2>
+                    <small class="text-warning text-dark badge bg-warning-subtle">Requires Attention</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Middle Row: Main Grid Separation -->
+    <div class="row g-4">
+        <!-- Left Side: Live Data Table -->
+        <div class="col-12 col-lg-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white py-3 border-bottom">
+                    <h5 class="card-title mb-0 text-dark font-weight-bold">Recent Transactions Feed</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Booking ID</th>
+                                    <th>Passenger</th>
+                                    <th>Service Description</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th class="text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var booking in Model)
+                                {
+                                    <tr>
+                                        <td><span class="font-weight-bold">@booking.BookingId</span></td>
+                                        <td>@booking.PassengerName</td>
+                                        <td>@booking.ServiceType</td>
+                                        <td>₹@booking.Amount.ToString("N2")</td>
+                                        <td>
+                                            @if (booking.Status == "Success")
+                                            {
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1">Success</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1">Failed</span>
+                                            }
+                                        </td>
+                                        <td class="text-center">
+                                            <!-- Concept #5: Edit button triggers preloaded data -->
+                                            <button class="btn btn-sm btn-outline-primary edit-booking-btn"
+                                                    data-id="@booking.BookingId"
+                                                    data-name="@booking.PassengerName"
+                                                    data-amount="@booking.Amount">
+                                                Edit
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side: API Monitoring Panel -->
+        <div class="col-12 col-lg-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white py-3 border-bottom">
+                    <h5 class="card-title mb-0 text-dark font-weight-bold">Third-Party API Monitor</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-3">
+                            <div>
+                                <h6 class="mb-0 font-weight-bold">Stripe Payment Gateway</h6>
+                                <small class="text-muted">Response: 42ms</small>
+                            </div>
+                            <span class="badge bg-success">🟢 ONLINE</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-3">
+                            <div>
+                                <h6 class="mb-0 font-weight-bold">Amadeus Flight API</h6>
+                                <small class="text-muted">Response: 118ms</small>
+                            </div>
+                            <span class="badge bg-success">🟢 ONLINE</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-3">
+                            <div>
+                                <h6 class="mb-0 font-weight-bold">Booking.com Hotel API</h6>
+                                <small class="text-danger">Error Code: 503</small>
+                            </div>
+                            <span class="badge bg-danger">🔴 OFFLINE</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Structure hidden at the bottom of the page (Concept #5) -->
+<div class="modal fade" id="editBookingModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Booking Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editBookingForm">
+                    <div class="mb-3">
+                        <label class="form-label">Booking ID</label>
+                        <input type="text" id="modalBookingId" class="form-control" readonly />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Passenger Name</label>
+                        <input type="text" id="modalPassengerName" class="form-control" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Amount (₹)</label>
+                        <input type="number" id="modalAmount" class="form-control" />
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Save Changes (API Push)</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+
+@section Scripts{
+    <script>
+        // Triggered when clicking the Edit button inside the table row
+        $('.edit-booking-btn').click(function() {
+            // 1. Pull data attributes preloaded into the clicked row button
+            var bookingId = $(this).data('id');
+            var name = $(this).data('name');
+            var amount = $(this).data('amount');
+
+            // 2. Map those values instantly into the fields inside the hidden popup modal
+            $('#modalBookingId').val(bookingId);
+            $('#modalPassengerName').val(name);
+            $('#modalAmount').val(amount);
+
+            // 3. Show the modal on user's screen smoothly via Bootstrap javascript
+            var modal = new bootstrap.Modal(document.getElementById('editBookingModal'));
+            modal.show();
+        });
+    </script>
+}
