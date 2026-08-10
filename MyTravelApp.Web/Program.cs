@@ -14,6 +14,7 @@ namespace MyTravelApp.Web
 
             //below line i added the DI of BLL file
             builder.Services.AddScoped<LoginRepository>();
+            builder.Services.AddHttpClient<WeatherSearchService>();
 
             // Add services to the container.
             builder.Services.AddControllersWithViews();

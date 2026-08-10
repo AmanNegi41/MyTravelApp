@@ -1,207 +1,1901 @@
-﻿@model List<MyTravelApp.Web.Models.BookingViewModel>
+﻿@*
+    =========================================================================
+    Dashboard.cshtml  —  MyTravel User Dashboard
+    =========================================================================
 
+    WHAT THIS FILE IS FOR (learning notes)
+    ---------------------------------------------------------------------
+    This is a single Razor View meant to double as a learning reference for
+    ASP.NET Core MVC. Every major Razor/Tag-Helper feature you'll use in a
+    real MVC project shows up here at least once, with a comment explaining
+    it the first time it appears:
+
+      @@model             -> binds this view to a strongly-typed C# class
+      @@{ ... }            -> a Razor "code block" (server-side C#)
+      @@Model.Property     -> outputs a value from the model (HTML-encoded)
+      @@if / @@foreach      -> control flow, mixed with HTML
+      asp-controller /
+      asp-action         -> tag helpers that generate <a href="..."> and
+                             <form action="..."> URLs from routing, instead
+                             of hard-coding strings (refactor-safe)
+      asp-route-*        -> adds route values / query values to a link
+      asp-for            -> binds an <input> to a model property (name,
+                             id, and value are generated for you)
+      asp-validation-for -> renders a validation message tied to a field
+      <partial>          -> renders a partial view (reusable chunk of UI)
+      @@Html.AntiForgeryToken() (via <form>) -> CSRF protection on POSTs
+
+    In your real project you would normally split a page this size into
+    partial views (_Navbar.cshtml, _Hero.cshtml, _StatsSection.cshtml,
+    _BookingsSection.cshtml, etc.) and a shared _Layout.cshtml. This file is
+    intentionally kept as ONE view — per your request — so every concept is
+    visible in one place while you're learning. Section banners below mark
+    where you'd normally cut a partial out.
+    ========================================================================
+*@
+
+@* -------------------------------------------------------------------------
+   @model tells Razor which C# class this view expects to receive from the
+   controller. Because of this, "Model" below is *strongly typed* — you get
+   IntelliSense, compile-time checking, and no risk of "magic string" typos
+   the way you would with ViewBag/ViewData for structured data.
+   ------------------------------------------------------------------------- *@
+@model MyTravelApp.Web.Models.DashboardViewModel
 @{
-    ViewData["Title"] = "Travel Operations Command Center";
-}
+    /* -----------------------------------------------------------------
+       A Razor "code block" — everything inside @{ } is plain C#.
+       ViewData is a loosely-typed dictionary (string keys, object values)
+       that's useful for small, page-level bits like <title> text that
+       don't deserve a full model property. Contrast with @model above,
+       which is for the page's *primary* structured data.
+       ----------------------------------------------------------------- */
+    ViewData["Title"] = "Dashboard";
 
-<header>
-<nav class="navbar navbar-expand-lg bg-body-tertiary">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="#">Navbar</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
-            <div class="navbar-nav">
-                <a class="nav-link active" aria-current="page" href="#">Home</a>
-                <a class="nav-link" href="#">Features</a>
-                <a class="nav-link" href="#">Pricing</a>
-                <a class="nav-link disabled" aria-disabled="true">Disabled</a>
-            </div>
-        </div>
-    </div>
-</nav>
-</header>
+    // Layout = null keeps this view fully self-contained (its own <html>,
+    // <head>, nav, footer) so it's easy to open and preview on its own.
+    // In a real app you'd set Layout = "_Layout" and this view would only
+    // contain the <main> content, with the shared chrome (nav/footer)
+    // living once in _Layout.cshtml instead of being duplicated per page.
+    Layout = null;
+
+    // A couple of small server-side helpers used further down the page.
+    // Because this is just C#, you can compute anything here that HTML
+    // alone can't express — string formatting, conditional CSS classes,
+    // date math, etc.
+    var today = DateTime.Now;
+    var greetingHour = today.Hour;
+    var timeOfDayGreeting = greetingHour < 12 ? "Good morning"
+                           : greetingHour < 18 ? "Good afternoon"
+                           : "Good evening";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Your MyTravel dashboard — bookings, weather, recommendations and more." />
+    @* @ViewData["Title"] reads back the value set above. Because ViewData
+       is just a dictionary, this line would still compile even if you
+       forgot to set "Title" (it would simply print nothing) — this is the
+       tradeoff versus the compile-time safety of @model. *@
+    <title>@ViewData["Title"] · MyTravel</title>
+
+    <!-- Bootstrap 5 (grid, components, utilities) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+    <!-- Icon set -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" />
+    <!-- Chart.js — powers the spending/trip history charts further down -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" defer></script>
+    <!-- Typography: Fraunces (display, used sparingly) + Inter (body / UI) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <!-- Site-wide stylesheet — asp-net static asset path via the ~/ tilde,
+         which the Static Files middleware resolves to wwwroot/css/site.css -->
+    <link rel="stylesheet" href="~/css/site.css" />
+
+    <style>
+        /* =====================================================================
+                   DESIGN TOKENS
+                   Palette: off-white canvas, deep ocean teal accent, warm sand for
+                   gentle contrast, navy ink for text. Declared as CSS variables so
+                   the whole theme can be retuned from one place.
+                ===================================================================== */
+        :root {
+            --ink: #1B2B34;
+            --ink-soft: #5C6F78;
+            --ink-faint: #8CA0A8;
+            --canvas: #F7F9FA;
+            --surface: #FFFFFF;
+            --line: #E7ECEE;
+            --teal: #0E7C7B;
+            --teal-dark: #0A5F5E;
+            --teal-tint: #E4F3F2;
+            --teal-tint-strong: #CDEBE9;
+            --sand: #FFEDE1;
+            --sand-strong: #FFD9C2;
+            --sand-ink: #9A5B33;
+            --coral: #E8735F;
+            --gold: #D9A441;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 18px;
+            --radius-xl: 26px;
+            --shadow-sm: 0 1px 2px rgba(27, 43, 52, 0.06);
+            --shadow-md: 0 8px 24px rgba(14, 124, 123, 0.10);
+            --shadow-lg: 0 20px 48px rgba(14, 124, 123, 0.16);
+            --ease: cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        * {
+            -webkit-font-smoothing: antialiased;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--canvas);
+            color: var(--ink);
+        }
+
+        h1, h2, h3, h4, .font-display {
+            font-family: 'Fraunces', Georgia, serif;
+            letter-spacing: -0.01em;
+        }
+
+        a {
+            text-decoration: none;
+        }
+
+        /* Respect users who prefer reduced motion — every animation below
+                   collapses to (near) instant so nothing loops or slides for them. */
+        @@media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.001ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.001ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+
+        /* ---------------------------------------------------------------
+                   SCROLL-REVEAL ANIMATION SYSTEM
+                   Any element with [data-reveal] starts hidden/offset; a small
+                   IntersectionObserver script near the bottom of the page adds
+                   the .is-visible class once it scrolls into the viewport. This
+                   gives the "slide down and things appear" effect you asked for,
+                   without janky scroll-position math or a heavy animation library.
+                --------------------------------------------------------------- */
+        [data-reveal] {
+            opacity: 0;
+            transform: translateY(22px);
+            transition: opacity 0.6s var(--ease), transform 0.6s var(--ease);
+            will-change: opacity, transform;
+        }
+
+            [data-reveal].is-visible {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            /* Stagger children of a revealed group using a CSS custom property
+                   set inline (--d) for delay, so cards cascade in rather than
+                   popping simultaneously. */
+            [data-reveal][style*="--d"] {
+                transition-delay: var(--d, 0s);
+            }
+
+        /* ---------------------------------------------------------------
+                   NAVBAR
+                --------------------------------------------------------------- */
+        .navbar-travel {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: saturate(180%) blur(10px);
+            border-bottom: 1px solid var(--line);
+        }
+
+        .brand-mark {
+            font-family: 'Fraunces', serif;
+            font-weight: 600;
+            font-size: 1.35rem;
+            color: var(--teal-dark);
+        }
+
+            .brand-mark .dot {
+                color: var(--sand-ink);
+            }
+
+        .navbar-travel .nav-link {
+            color: var(--ink-soft);
+            font-weight: 500;
+            font-size: 0.94rem;
+            padding: 0.5rem 0.9rem !important;
+            border-radius: 999px;
+            transition: background-color 0.18s ease, color 0.18s ease;
+        }
+
+            .navbar-travel .nav-link:hover,
+            .navbar-travel .nav-link.active {
+                color: var(--teal-dark);
+                background: var(--teal-tint);
+            }
+
+        /* Small unread-count pill on the bell icon in the nav */
+        .nav-icon-btn {
+            position: relative;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 1px solid var(--line);
+            background: var(--surface);
+            color: var(--ink-soft);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+        }
+
+            .nav-icon-btn:hover {
+                background: var(--teal-tint);
+                color: var(--teal-dark);
+                transform: translateY(-1px);
+            }
+
+            .nav-icon-btn .ping {
+                position: absolute;
+                top: -2px;
+                right: -2px;
+                width: 9px;
+                height: 9px;
+                border-radius: 50%;
+                background: var(--coral);
+                border: 2px solid var(--surface);
+            }
+
+        .avatar-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--teal);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            border: none;
+            transition: transform 0.18s ease, box-shadow 0.18s ease;
+        }
+
+            .avatar-btn:hover {
+                transform: translateY(-1px);
+                box-shadow: var(--shadow-md);
+            }
+
+        /* ---------------------------------------------------------------
+                   HERO
+                --------------------------------------------------------------- */
+        .hero {
+            position: relative;
+            border-radius: 0 0 28px 28px;
+            overflow: hidden;
+            background-image: linear-gradient(180deg, rgba(10, 44, 51, 0.72) 0%, rgba(10, 60, 66, 0.45) 55%, rgba(247, 249, 250, 0.98) 100%), url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=70');
+            background-size: cover;
+            background-position: center;
+            padding: 3.25rem 0 2.5rem;
+        }
+
+        .hero-greeting-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: rgba(255, 255, 255, 0.16);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
+            font-size: 0.8rem;
+            font-weight: 500;
+            padding: 0.3rem 0.75rem;
+            border-radius: 999px;
+        }
+
+        .hero h1 {
+            color: #fff;
+            font-size: clamp(1.9rem, 3.6vw, 2.75rem);
+            font-weight: 500;
+            margin-top: 0.75rem;
+        }
+
+        .hero p.lead {
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 1.02rem;
+            max-width: 42ch;
+        }
+
+        /* Quick-glance weather chip shown beside the greeting */
+        .weather-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            background: rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            border-radius: var(--radius-md);
+            padding: 0.6rem 1rem;
+            color: #fff;
+        }
+
+            .weather-chip .temp {
+                font-family: 'Fraunces', serif;
+                font-size: 1.5rem;
+                font-weight: 600;
+                line-height: 1;
+            }
+
+        /* ---------------------------------------------------------------
+                   SEARCH WIDGETS (weather + hotel) — sit on a shared frosted panel
+                --------------------------------------------------------------- */
+        .search-panel {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+            padding: 1.25rem;
+            border: 1px solid var(--line);
+            margin: 25px;
+        }
+
+            .search-panel .nav-pills .nav-link {
+                color: var(--ink-soft);
+                font-weight: 600;
+                font-size: 0.88rem;
+                border-radius: 999px;
+                padding: 0.4rem 1rem;
+                transition: background-color 0.18s ease, color 0.18s ease;
+            }
+
+                .search-panel .nav-pills .nav-link.active {
+                    background: var(--teal);
+                    color: #fff;
+                }
+
+        .form-control, .form-select {
+            border-color: var(--line);
+            font-size: 0.92rem;
+        }
+
+            .form-control:focus, .form-select:focus {
+                border-color: var(--teal);
+                box-shadow: 0 0 0 0.2rem rgba(14, 124, 123, 0.15);
+            }
+
+        .form-floating > label {
+            color: var(--ink-soft);
+            font-size: 0.86rem;
+        }
+
+        .btn-teal {
+            background: var(--teal);
+            border-color: var(--teal);
+            color: #fff;
+            font-weight: 600;
+            transition: background-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+        }
+
+            .btn-teal:hover {
+                background: var(--teal-dark);
+                border-color: var(--teal-dark);
+                color: #fff;
+                transform: translateY(-1px);
+                box-shadow: var(--shadow-md);
+            }
+
+        .btn-outline-teal {
+            border: 1px solid var(--teal);
+            color: var(--teal-dark);
+            background: transparent;
+            font-weight: 600;
+            transition: background-color 0.18s ease, transform 0.18s ease;
+        }
+
+            .btn-outline-teal:hover {
+                background: var(--teal-tint);
+                color: var(--teal-dark);
+                transform: translateY(-1px);
+            }
+
+
+        /* Field validation message styling (used with asp-validation-for) */
+        .text-danger.field-validation-error,
+        .field-validation-error {
+            font-size: 0.8rem;
+        }
+
+        /* ---------------------------------------------------------------
+                   STAT CARDS
+                --------------------------------------------------------------- */
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius-lg);
+            padding: 1.35rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+            height: 100%;
+        }
+
+            .stat-card:hover {
+                transform: translateY(-3px);
+                box-shadow: var(--shadow-md);
+            }
+
+        .stat-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.35rem;
+            flex-shrink: 0;
+        }
+
+            .stat-icon.teal {
+                background: var(--teal-tint);
+                color: var(--teal-dark);
+            }
+
+            .stat-icon.sand {
+                background: var(--sand);
+                color: var(--sand-ink);
+            }
+
+            .stat-icon.slate {
+                background: #EEF1F3;
+                color: var(--ink-soft);
+            }
+
+            .stat-icon.coral {
+                background: #FBE7E3;
+                color: var(--coral);
+            }
+
+        .stat-value {
+            font-family: 'Fraunces', serif;
+            font-size: 1.9rem;
+            font-weight: 600;
+            line-height: 1;
+        }
+
+        .stat-label {
+            color: var(--ink-soft);
+            font-size: 0.86rem;
+            margin-top: 0.15rem;
+        }
+
+        .stat-delta {
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: auto;
+            padding: 0.2rem 0.5rem;
+            border-radius: 999px;
+        }
+
+            .stat-delta.up {
+                background: var(--teal-tint);
+                color: var(--teal-dark);
+            }
+
+            .stat-delta.down {
+                background: #FBE7E3;
+                color: var(--coral);
+            }
+
+        /* ---------------------------------------------------------------
+                   SIGNATURE ELEMENT: "Boarding pass" booking cards
+                   A perforated divider + stub, evoking an actual travel ticket
+                   rather than a generic list/table.
+                --------------------------------------------------------------- */
+        .boarding-pass {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius-lg);
+            display: flex;
+            overflow: hidden;
+            transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+            height: 100%;
+        }
+
+            .boarding-pass:hover {
+                transform: translateY(-3px);
+                box-shadow: var(--shadow-md);
+            }
+
+        .boarding-pass__main {
+            flex: 1;
+            padding: 1.1rem 1.25rem;
+            min-width: 0;
+        }
+
+        .boarding-pass__thumb {
+            width: 84px;
+            border-radius: var(--radius-md);
+            object-fit: cover;
+            aspect-ratio: 1 / 1;
+        }
+
+        .boarding-pass__divider {
+            position: relative;
+            width: 0;
+            border-left: 2px dashed var(--line);
+            margin: 0.85rem 0;
+        }
+
+            .boarding-pass__divider::before,
+            .boarding-pass__divider::after {
+                content: "";
+                position: absolute;
+                width: 16px;
+                height: 16px;
+                background: var(--canvas);
+                border-radius: 50%;
+                left: -9px;
+            }
+
+            .boarding-pass__divider::before {
+                top: -0.85rem;
+            }
+
+            .boarding-pass__divider::after {
+                bottom: -0.85rem;
+            }
+
+        .boarding-pass__stub {
+            width: 108px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.15rem;
+            padding: 0.75rem 0.5rem;
+            background: var(--teal-tint);
+            text-align: center;
+        }
+
+            .boarding-pass__stub .code {
+                font-family: 'Fraunces', serif;
+                font-size: 0.95rem;
+                font-weight: 600;
+                color: var(--teal-dark);
+                letter-spacing: 0.03em;
+            }
+
+        .badge-status {
+            font-weight: 600;
+            font-size: 0.72rem;
+            padding: 0.32rem 0.6rem;
+            border-radius: 999px;
+        }
+
+            .badge-status.upcoming {
+                background: var(--teal-tint);
+                color: var(--teal-dark);
+            }
+
+            .badge-status.pending {
+                background: var(--sand);
+                color: var(--sand-ink);
+            }
+
+        .section-eyebrow {
+            font-size: 0.82rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--teal);
+        }
+
+        /* ---------------------------------------------------------------
+                   RECOMMENDED DESTINATIONS — horizontal scroll-snap carousel
+                --------------------------------------------------------------- */
+        .destination-scroller {
+            display: flex;
+            gap: 1rem;
+            overflow-x: auto;
+            padding-bottom: 0.75rem;
+            scroll-snap-type: x mandatory;
+            scrollbar-width: thin;
+            scrollbar-color: var(--teal-tint-strong) transparent;
+        }
+
+            .destination-scroller::-webkit-scrollbar {
+                height: 6px;
+            }
+
+            .destination-scroller::-webkit-scrollbar-thumb {
+                background: var(--teal-tint-strong);
+                border-radius: 999px;
+            }
+
+        .destination-card {
+            position: relative;
+            flex: 0 0 260px;
+            scroll-snap-align: start;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            height: 320px;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 1.1rem;
+            background-size: cover;
+            background-position: center;
+            transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
+        }
+
+            .destination-card::before {
+                content: "";
+                position: absolute;
+                inset: 0;
+                background: linear-gradient(180deg, rgba(10, 30, 35, 0) 40%, rgba(9, 26, 30, 0.86) 100%);
+            }
+
+            .destination-card:hover {
+                transform: translateY(-5px);
+                box-shadow: var(--shadow-lg);
+            }
+
+            .destination-card > * {
+                position: relative;
+                z-index: 1;
+            }
+
+            .destination-card .price-tag {
+                position: absolute;
+                top: 0.85rem;
+                right: 0.85rem;
+                z-index: 2;
+                background: rgba(255, 255, 255, 0.92);
+                color: var(--teal-dark);
+                font-weight: 700;
+                font-size: 0.78rem;
+                padding: 0.3rem 0.65rem;
+                border-radius: 999px;
+            }
+
+            .destination-card .save-btn {
+                position: absolute;
+                top: 0.85rem;
+                left: 0.85rem;
+                z-index: 2;
+                width: 34px;
+                height: 34px;
+                border-radius: 50%;
+                border: none;
+                background: rgba(9, 26, 30, 0.45);
+                color: #fff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: background-color 0.18s ease, transform 0.18s ease;
+            }
+
+                .destination-card .save-btn:hover {
+                    background: var(--coral);
+                    transform: scale(1.08);
+                }
+
+                .destination-card .save-btn.saved {
+                    background: var(--coral);
+                }
+
+            .destination-card .rating {
+                font-size: 0.78rem;
+                opacity: 0.9;
+            }
+
+            .destination-card h3 {
+                font-size: 1.15rem;
+                margin: 0.15rem 0 0;
+            }
+
+        .scroller-arrow {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 1px solid var(--line);
+            background: var(--surface);
+            color: var(--teal-dark);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.18s ease, transform 0.18s ease;
+        }
+
+            .scroller-arrow:hover {
+                background: var(--teal-tint);
+                transform: translateY(-1px);
+            }
+
+        /* ---------------------------------------------------------------
+                   ANALYTICS / CHARTS PANEL
+                --------------------------------------------------------------- */
+        .chart-card {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius-lg);
+            padding: 1.4rem;
+            height: 100%;
+        }
+
+        .chart-legend-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 0.4rem;
+        }
+
+        .chart-canvas-wrap {
+            position: relative;
+            height: 260px;
+        }
+
+        /* ---------------------------------------------------------------
+                   NOTIFICATIONS / ACTIVITY FEED
+                --------------------------------------------------------------- */
+        .activity-feed {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius-lg);
+            padding: 0.5rem 0;
+        }
+
+        .activity-item {
+            display: flex;
+            gap: 0.85rem;
+            padding: 0.85rem 1.25rem;
+            border-bottom: 1px solid var(--line);
+            transition: background-color 0.15s ease;
+        }
+
+            .activity-item:last-child {
+                border-bottom: none;
+            }
+
+            .activity-item:hover {
+                background: var(--canvas);
+            }
+
+            .activity-item.unread {
+                background: linear-gradient(90deg, var(--teal-tint) 0%, transparent 12%);
+            }
+
+        .activity-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 1rem;
+        }
+
+            .activity-icon.price {
+                background: var(--teal-tint);
+                color: var(--teal-dark);
+            }
+
+            .activity-icon.reminder {
+                background: var(--sand);
+                color: var(--sand-ink);
+            }
+
+            .activity-icon.system {
+                background: #EEF1F3;
+                color: var(--ink-soft);
+            }
+
+            .activity-icon.social {
+                background: #FBE7E3;
+                color: var(--coral);
+            }
+
+        .activity-time {
+            font-size: 0.74rem;
+            color: var(--ink-faint);
+            white-space: nowrap;
+        }
+
+        /* ---------------------------------------------------------------
+                   CURRENCY CONVERTER + CHECKLIST WIDGETS
+                --------------------------------------------------------------- */
+        .tool-card {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius-lg);
+            padding: 1.4rem;
+            height: 100%;
+        }
+
+        .tool-card__icon {
+            width: 44px;
+            height: 44px;
+            border-radius: var(--radius-md);
+            background: var(--teal-tint);
+            color: var(--teal-dark);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .swap-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 1px solid var(--line);
+            background: var(--surface);
+            color: var(--teal-dark);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.25s var(--ease), background-color 0.18s ease;
+        }
+
+            .swap-btn:hover {
+                background: var(--teal-tint);
+                transform: rotate(180deg);
+            }
+
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            padding: 0.55rem 0;
+            border-bottom: 1px dashed var(--line);
+        }
+
+            .checklist-item:last-of-type {
+                border-bottom: none;
+            }
+
+            .checklist-item label {
+                font-size: 0.9rem;
+                cursor: pointer;
+                flex: 1;
+            }
+
+            .form-check-input:checked ~ label,
+            .checklist-item input:checked + label {
+                color: var(--ink-faint);
+                text-decoration: line-through;
+            }
+
+        .form-check-input:checked {
+            background-color: var(--teal);
+            border-color: var(--teal);
+        }
+
+        .checklist-progress {
+            height: 6px;
+            border-radius: 999px;
+            background: var(--line);
+            overflow: hidden;
+        }
+
+        .checklist-progress__bar {
+            height: 100%;
+            background: var(--teal);
+            border-radius: 999px;
+            transition: width 0.4s var(--ease);
+        }
+
+        /* ---------------------------------------------------------------
+                   TRAVEL TIPS / INSPIRATION STRIP
+                --------------------------------------------------------------- */
+        .tip-card {
+            background: linear-gradient(160deg, var(--teal-tint) 0%, var(--surface) 65%);
+            border: 1px solid var(--line);
+            border-radius: var(--radius-lg);
+            padding: 1.25rem;
+            height: 100%;
+            transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+        }
+
+            .tip-card:hover {
+                transform: translateY(-3px);
+                box-shadow: var(--shadow-md);
+            }
+
+            .tip-card .tip-icon {
+                font-size: 1.3rem;
+                color: var(--teal-dark);
+                margin-bottom: 0.6rem;
+            }
+
+        footer.site-footer {
+            border-top: 1px solid var(--line);
+            color: var(--ink-soft);
+            font-size: 0.85rem;
+        }
+
+            footer.site-footer a {
+                color: var(--ink-soft);
+                transition: color 0.18s ease;
+            }
+
+                footer.site-footer a:hover {
+                    color: var(--teal-dark);
+                }
+
+        /* Back-to-top button, revealed once the user scrolls past the hero */
+        #backToTop {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            background: var(--teal);
+            color: #fff;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow-md);
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(10px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            z-index: 1030;
+        }
+
+            #backToTop.show {
+                opacity: 1;
+                pointer-events: auto;
+                transform: translateY(0);
+            }
+    </style>
+
+</head>
 <body>
 
-<div class="container-fluid px-4 py-3">
-    <!-- Dashboard Header -->
-    <div class="d-flex justify-content-between align-items-center pb-2 mb-4 border-bottom">
-        <h1 class="h3 text-dark font-weight-bold">Travel Operations Dashboard</h1>
-        <span class="badge bg-secondary p-2">System Time: 2026</span>
-    </div>
+    @* =====================================================================
+       HEADER / NAVBAR
+       In a bigger project this whole <nav> would live in its own partial,
+       e.g. <partial name="_Navbar" />, so every page includes it once.
+       It's kept inline here so the full markup is visible for learning.
+    ===================================================================== *@
+    <nav class="navbar navbar-expand-lg navbar-travel sticky-top py-3">
+        <div class="container">
+            @* asp-controller + asp-action generate the href by asking MVC's
+               routing system for the URL that maps to Dashboard/Index —
+               if you ever rename a route, this link updates automatically
+               instead of silently pointing at a dead URL. *@
+            <a class="navbar-brand brand-mark" asp-controller="Dashboard" asp-action="Index">
+                MyTravel<span class="dot">.</span>
+            </a>
 
-    <!-- Top Row: Enterprise KPI Summary Cards -->
-    <div class="row g-3 mb-4">
-        <div class="col-12 col-md-4">
-            <div class="card border-start border-success border-4 shadow-sm h-100">
-                <div class="card-body">
-                    <h6 class="text-muted text-uppercase small font-weight-bold">Today's Revenue</h6>
-                    <h2 class="text-success mb-0">₹1,24,500.00</h2>
-                    <small class="text-muted">Settled via Stripe</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-md-4">
-            <div class="card border-start border-primary border-4 shadow-sm h-100">
-                <div class="card-body">
-                    <h6 class="text-muted text-uppercase small font-weight-bold">Active Bookings</h6>
-                    <h2 class="text-primary mb-0">142 Tickets</h2>
-                    <small class="text-muted">Synced with Flight API</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-md-4">
-            <div class="card border-start border-danger border-4 shadow-sm h-100">
-                <div class="card-body">
-                    <h6 class="text-muted text-uppercase small font-weight-bold">API Gateway Alerts</h6>
-                    <h2 class="text-danger mb-0">3 Failures</h2>
-                    <small class="text-warning text-dark badge bg-warning-subtle">Requires Attention</small>
-                </div>
-            </div>
-        </div>
-    </div>
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
 
-    <!-- Middle Row: Main Grid Separation -->
-    <div class="row g-4">
-        <!-- Left Side: Live Data Table -->
-        <div class="col-12 col-lg-8">
-            <div class="card shadow-sm border-0">
-                <div class="card-header bg-white py-3 border-bottom">
-                    <h5 class="card-title mb-0 text-dark font-weight-bold">Recent Transactions Feed</h5>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Booking ID</th>
-                                    <th>Passenger</th>
-                                    <th>Service Description</th>
-                                    <th>Amount</th>
-                                    <th>Status</th>
-                                    <th class="text-center">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var booking in Model)
+            <div class="collapse navbar-collapse" id="mainNav">
+                <ul class="navbar-nav mx-auto mb-2 mb-lg-0 gap-lg-1">
+                    <li class="nav-item">
+                        <a class="nav-link active" asp-controller="Dashboard" asp-action="Index">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Bookings" asp-action="Index">My Bookings</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Explore" asp-action="Index">Explore</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Wishlist" asp-action="Index">Wishlist</a>
+                    </li>
+                </ul>
+
+                <div class="d-flex align-items-center gap-2 ms-lg-3">
+                    @* Notifications bell — opens the same activity feed that's
+                       rendered further down the page, in a dropdown. *@
+                    <div class="dropdown">
+                        <button class="nav-icon-btn" type="button" id="notifBell" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications">
+                            <i class="bi bi-bell"></i>
+                            @if (Model?.UnreadNotificationCount > 0)
+                            {
+                                <span class="ping"></span>
+                            }
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2 p-0" style="width: 320px;" aria-labelledby="notifBell">
+                            <li class="px-3 py-2 border-bottom d-flex justify-content-between align-items-center">
+                                <strong class="small">Notifications</strong>
+                                <a asp-controller="Notifications" asp-action="Index" class="small">View all</a>
+                            </li>
+                            @* Reuse the same collection the activity-feed section renders
+                               lower on the page — take the first 3 with LINQ's .Take() *@
+                            @if (Model?.Activities != null)
+                            {
+                                @foreach (var item in Model.Activities.Take(3))
                                 {
-                                    <tr>
-                                        <td><span class="font-weight-bold">@booking.BookingId</span></td>
-                                        <td>@booking.PassengerName</td>
-                                        <td>@booking.ServiceType</td>
-                                        <td>₹@booking.Amount.ToString("N2")</td>
-                                        <td>
-                                            @if (booking.Status == "Success")
-                                            {
-                                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1">Success</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1">Failed</span>
-                                            }
-                                        </td>
-                                        <td class="text-center">
-                                            <!-- Concept #5: Edit button triggers preloaded data -->
-                                            <button class="btn btn-sm btn-outline-primary edit-booking-btn"
-                                                    data-id="@booking.BookingId"
-                                                    data-name="@booking.PassengerName"
-                                                    data-amount="@booking.Amount">
-                                                Edit
-                                            </button>
-                                        </td>
-                                    </tr>
+                                    <li class="activity-item @(item.IsUnread ? "unread" : "")">
+                                        <span class="activity-icon @item.IconClass"><i class="bi @item.Icon"></i></span>
+                                        <div class="flex-grow-1">
+                                            <div class="small">@item.Message</div>
+                                            <div class="activity-time">@item.TimeAgo</div>
+                                        </div>
+                                    </li>
                                 }
-                            </tbody>
-                        </table>
+                            }
+                        </ul>
+                    </div>
+
+                    @* Profile dropdown *@
+                    <div class="dropdown">
+                        <button class="avatar-btn dropdown-toggle" type="button" id="profileMenu" data-bs-toggle="dropdown" aria-expanded="false">
+                            @* Initials fallback avatar — swap for an <img> if the user has a profile photo *@
+                            @(Model?.UserName != null && Model.UserName.Length > 0 ? Model.UserName.Substring(0, 1).ToUpper() : "U")
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2" aria-labelledby="profileMenu">
+                            <li><h6 class="dropdown-header">@Model?.UserName</h6></li>
+                            <li><a class="dropdown-item" asp-controller="Account" asp-action="Profile"><i class="bi bi-person me-2"></i>My Profile</a></li>
+                            <li><a class="dropdown-item" asp-controller="Account" asp-action="Settings"><i class="bi bi-gear me-2"></i>Settings</a></li>
+                            <li><hr class="dropdown-divider" /></li>
+                            <li>
+                                @* A POST form is used for logout (never a GET link) since it
+                                   changes server-side state. asp-controller/asp-action here
+                                   generate the form's action URL the same way they do for <a>.
+                                   The anti-forgery token needed for CSRF protection is added
+                                   automatically by the <form> tag helper. *@
+                                <form asp-controller="Account" asp-action="Logout" method="post" class="m-0">
+                                    <button type="submit" class="dropdown-item text-danger">
+                                        <i class="bi bi-box-arrow-right me-2"></i>Logout
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    @* =====================================================================
+       HERO SECTION
+       Personalized greeting over a soft gradient photo, with search
+       widgets anchored to the bottom edge of the panel.
+    ===================================================================== *@
+    <header class="hero">
+        <div class="container">
+            <span class="hero-greeting-eyebrow">
+                <i class="bi bi-sun"></i> @timeOfDayGreeting
+            </span>
+            <div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
+                <div>
+                    <h1>Welcome back, @(Model?.UserName ?? "Traveler")!</h1>
+                    <p class="lead">Here's what's happening with your trips — check the weather ahead, browse fresh ideas, or find your next stay.</p>
+                </div>
+
+                @* Small "weather at a glance" chip for the user's home city,
+                   separate from the full weather-search widget below. *@
+                @if (Model?.HomeWeather != null)
+                {
+                    <div class="weather-chip">
+                        <i class="bi @Model.HomeWeather.Icon fs-3"></i>
+                        <div>
+                            <span class="temp">@Model.HomeWeather.TemperatureC&deg;</span>
+                            <div class="small">@Model.HomeWeather.City &middot; @Model.HomeWeather.Condition</div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="search-panel">
+            @* Tabs switch between the three search widgets *@
+            <ul class="nav nav-pills gap-2 mb-3" id="searchTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="hotel-tab" data-bs-toggle="pill" data-bs-target="#hotel-search" type="button" role="tab" aria-controls="hotel-search" aria-selected="true">
+                        <i class="bi bi-building me-1"></i> Find a Stay
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="weather-tab" data-bs-toggle="pill" data-bs-target="#weather-search" type="button" role="tab" aria-controls="weather-search" aria-selected="false">
+                        <i class="bi bi-cloud-sun me-1"></i> Check Weather
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="flight-tab" data-bs-toggle="pill" data-bs-target="#flight-search" type="button" role="tab" aria-controls="flight-search" aria-selected="false">
+                        <i class="bi bi-airplane me-1"></i> Search Flights
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="searchTabsContent">
+
+                <!-- HOTEL SEARCH -->
+                <div class="tab-pane fade show active" id="hotel-search" role="tabpanel" aria-labelledby="hotel-tab">
+                    <form asp-controller="Hotels" asp-action="Search" method="get" class="row g-2 align-items-end">
+                        <div class="col-12 col-md-4">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="hotelDestination" name="destination" placeholder="Where to?" />
+                                <label for="hotelDestination"><i class="bi bi-geo-alt me-1"></i>Destination</label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <div class="form-floating">
+                                <input type="date" class="form-control" id="checkIn" name="checkIn" />
+                                <label for="checkIn">Check-in</label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <div class="form-floating">
+                                <input type="date" class="form-control" id="checkOut" name="checkOut" />
+                                <label for="checkOut">Check-out</label>
+                            </div>
+                        </div>
+                        <div class="col-8 col-md-2">
+                            <div class="form-floating">
+                                <select class="form-select" id="guests" name="guests">
+                                    <option value="1">1 Guest</option>
+                                    <option value="2" selected>2 Guests</option>
+                                    <option value="3">3 Guests</option>
+                                    <option value="4">4+ Guests</option>
+                                </select>
+                                <label for="guests">Guests</label>
+                            </div>
+                        </div>
+                        <div class="col-4 col-md-2 d-grid">
+                            <button type="submit" class="btn btn-teal py-3"><i class="bi bi-search"></i> Search</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- WEATHER SEARCH -->
+                <div class="tab-pane fade" id="weather-search" role="tabpanel" aria-labelledby="weather-tab">
+                    <form asp-controller="Weather" asp-action="WeatherSearch" method="get" class="row g-2 align-items-end">
+                        <div class="col-9 col-md-10">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="weatherCity" name="location" placeholder="City or destination" />
+                                <label for="weatherCity"><i class="bi bi-cloud me-1"></i>Check weather for a destination</label>
+                            </div>
+                        </div>
+                        <div class="col-3 col-md-2 d-grid">
+                            <button type="submit" class="btn btn-teal py-3"><i class="bi bi-search"></i> Check</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- FLIGHT SEARCH — single form, Round Trip toggles the Return field via JS below -->
+                <div class="tab-pane fade" id="flight-search" role="tabpanel" aria-labelledby="flight-tab">
+                    <form asp-controller="Flight" asp-action="FlightSearch" method="get" class="row g-2 align-items-end" id="flightForm">
+                        <div class="col-12">
+                            <div class="d-flex gap-4 mb-1">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="TripType" id="tripTypeOneWay" value="OneWay" checked />
+                                    <label class="form-check-label" for="tripTypeOneWay">One Way</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="TripType" id="tripTypeRoundTrip" value="RoundTrip" />
+                                    <label class="form-check-label" for="tripTypeRoundTrip">Round Trip</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-3">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="flightOrigin" name="Origin" placeholder="Origin airport" required />
+                                <label for="flightOrigin"><i class="bi bi-airplane-engines me-1"></i>Flying From</label>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-3">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="flightDestination" name="Destination" placeholder="Destination airport" required />
+                                <label for="flightDestination"><i class="bi bi-geo-alt me-1"></i>Flying To</label>
+                            </div>
+                        </div>
+
+                        <div class="col-6 col-md-2">
+                            <div class="form-floating">
+                                <input type="date" class="form-control" id="flightDepart" name="DepartDate" required />
+                                <label for="flightDepart">Departure</label>
+                            </div>
+                        </div>
+
+                        <div class="col-6 col-md-2 d-none" id="returnDateWrap">
+                            <div class="form-floating">
+                                <input type="date" class="form-control" id="flightReturn" name="ReturnDate" disabled />
+                                <label for="flightReturn">Return</label>
+                            </div>
+                        </div>
+
+                        <div class="col-6 col-md-2">
+                            <div class="form-floating">
+                                <select class="form-select" id="flightTravellers" name="Travellers">
+                                    <option value="1">1 Traveller</option>
+                                    <option value="2" selected>2 Travellers</option>
+                                    <option value="3">3 Travellers</option>
+                                    <option value="4">4+ Travellers</option>
+                                </select>
+                                <label for="flightTravellers">Travellers</label>
+                            </div>
+                        </div>
+
+                        <div class="col-6 col-md-2">
+                            <div class="form-floating">
+                                <select class="form-select" id="flightCabin" name="CabinClass">
+                                    <option selected>Economy</option>
+                                    <option>Premium Economy</option>
+                                    <option>Business</option>
+                                    <option>First Class</option>
+                                </select>
+                                <label for="flightCabin">Class</label>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-2 d-grid">
+                            <button type="submit" class="btn btn-teal py-3"><i class="bi bi-search"></i> Search</button>
+                        </div>
+                    </form>
+                </div>
+
+            </div>
+        </div>
+
+    </header>
+
+    @* =====================================================================
+       DASHBOARD BODY
+    ===================================================================== *@
+    <main class="container my-5">
+
+        @* -----------------------------------------------------------------
+           QUICK STATISTICS
+           data-reveal + an inline --d delay variable stagger these cards
+           in as the user scrolls to them (see the IntersectionObserver
+           script near the end of the file).
+        ----------------------------------------------------------------- *@
+        <div class="row g-3 mb-5">
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="stat-card" data-reveal style="--d:0s">
+                    <div class="stat-icon teal"><i class="bi bi-airplane"></i></div>
+                    <div>
+                        <div class="stat-value">@(Model?.UpcomingTripsCount ?? 0)</div>
+                        <div class="stat-label">Upcoming Trips</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="stat-card" data-reveal style="--d:0.08s">
+                    <div class="stat-icon slate"><i class="bi bi-check2-circle"></i></div>
+                    <div>
+                        <div class="stat-value">@(Model?.CompletedTripsCount ?? 0)</div>
+                        <div class="stat-label">Completed Trips</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="stat-card" data-reveal style="--d:0.16s">
+                    <div class="stat-icon sand"><i class="bi bi-heart"></i></div>
+                    <div>
+                        <div class="stat-value">@(Model?.WishlistCount ?? 0)</div>
+                        <div class="stat-label">Wishlist Items</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="stat-card" data-reveal style="--d:0.24s">
+                    <div class="stat-icon coral"><i class="bi bi-wallet2"></i></div>
+                    <div>
+                        @* :C0 formats a decimal/double as currency with 0 decimal
+                           places, using the server's current culture settings. *@
+                        <div class="stat-value">@(Model?.TotalSpentThisYear.ToString("C0") ?? "$0")</div>
+                        <div class="stat-label">Spent This Year</div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Right Side: API Monitoring Panel -->
-        <div class="col-12 col-lg-4">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-header bg-white py-3 border-bottom">
-                    <h5 class="card-title mb-0 text-dark font-weight-bold">Third-Party API Monitor</h5>
+
+        <section data-reveal class="mb-5">
+            <div class="d-flex justify-content-between align-items-end mb-3">
+                <div>
+                    <span class="section-eyebrow">Your itinerary</span>
+                    <h2 class="h4 mb-0 mt-1">Upcoming Bookings</h2>
                 </div>
-                <div class="card-body">
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-3">
-                            <div>
-                                <h6 class="mb-0 font-weight-bold">Stripe Payment Gateway</h6>
-                                <small class="text-muted">Response: 42ms</small>
+                <a asp-controller="Bookings" asp-action="Index" class="btn btn-outline-teal btn-sm rounded-pill px-3">
+                    View all <i class="bi bi-arrow-right ms-1"></i>
+                </a>
+            </div>
+
+            <div class="row g-3">
+                @* @if / else is standard Razor control flow — everything
+                   inside still emits plain HTML, C# just decides which
+                   branch runs. *@
+                @if (Model?.Bookings != null && Model.Bookings.Any())
+                {
+                    @* @foreach loops over the strongly-typed Bookings
+                       collection. Because Model.Bookings is typed as
+                       IEnumerable<BookingViewModel>, "booking" below has
+                       full IntelliSense — no casting, no magic strings. *@
+                    @foreach (var booking in Model.Bookings)
+                    {
+                        <div class="col-12 col-lg-6">
+                            <div class="boarding-pass">
+                                <div class="boarding-pass__main d-flex gap-3">
+                                    <img src="@booking.ImageUrl" alt="@booking.Destination" class="boarding-pass__thumb" />
+                                    <div class="min-width-0">
+                                        <span class="badge-status @(booking.Status == "Confirmed" ? "upcoming" : "pending")">
+                                            @booking.Status
+                                        </span>
+                                        <h3 class="h6 mt-2 mb-1 text-truncate">@booking.Destination</h3>
+                                        <div class="text-secondary small">
+                                            <i class="bi bi-calendar3 me-1"></i>
+                                            @booking.CheckIn.ToString("MMM d") &ndash; @booking.CheckOut.ToString("MMM d, yyyy")
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="boarding-pass__divider"></div>
+                                <div class="boarding-pass__stub">
+                                    <i class="bi bi-ticket-perforated text-teal"></i>
+                                    <span class="code">@booking.ConfirmationCode</span>
+                                    <span class="text-secondary" style="font-size:0.7rem;">CODE</span>
+                                </div>
                             </div>
-                            <span class="badge bg-success">🟢 ONLINE</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-3">
-                            <div>
-                                <h6 class="mb-0 font-weight-bold">Amadeus Flight API</h6>
-                                <small class="text-muted">Response: 118ms</small>
+                        </div>
+                    }
+                }
+                else
+                {
+                    @* Empty state — shown when the collection is null or has
+                       no items, so the page never renders an awkward blank
+                       gap. *@
+                    <div class="col-12">
+                        <div class="text-center py-5 border rounded-4 bg-white">
+                            <i class="bi bi-suitcase-lg fs-1 text-secondary"></i>
+                            <p class="mt-3 mb-3 text-secondary">No upcoming bookings yet — plan your next getaway.</p>
+                            <a asp-controller="Explore" asp-action="Index" class="btn btn-teal rounded-pill px-4">
+                                Explore Destinations
+                            </a>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+
+        @* -----------------------------------------------------------------
+           TRAVEL ANALYTICS — spending + trip history charts (Chart.js)
+           The chart data is serialized from the C# model into JSON right
+           here in the view using @Html.Raw + System.Text.Json, so the
+           chart always reflects whatever the controller passed in rather
+           than being hard-coded in JavaScript.
+        ----------------------------------------------------------------- *@
+        <section data-reveal class="mb-5">
+            <div class="mb-3">
+                <span class="section-eyebrow">Your travel analytics</span>
+                <h2 class="h4 mb-0 mt-1">Spending &amp; Trip History</h2>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-12 col-lg-7">
+                    <div class="chart-card">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h3 class="h6 mb-0">Monthly Spend</h3>
+                            <div class="small text-secondary">
+                                <span class="chart-legend-dot" style="background:var(--teal)"></span>This year
+                                <span class="chart-legend-dot ms-3" style="background:var(--sand-strong)"></span>Last year
                             </div>
-                            <span class="badge bg-success">🟢 ONLINE</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-3">
-                            <div>
-                                <h6 class="mb-0 font-weight-bold">Booking.com Hotel API</h6>
-                                <small class="text-danger">Error Code: 503</small>
-                            </div>
-                            <span class="badge bg-danger">🔴 OFFLINE</span>
-                        </li>
-                    </ul>
+                        </div>
+                        <div class="chart-canvas-wrap">
+                            <canvas id="spendChart"></canvas>
+                        </div>
+                    </div>
                 </div>
+                <div class="col-12 col-lg-5">
+                    <div class="chart-card">
+                        <h3 class="h6 mb-3">Trips by Category</h3>
+                        <div class="chart-canvas-wrap" style="height:220px;">
+                            <canvas id="tripTypeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        @* -----------------------------------------------------------------
+           RECOMMENDED DESTINATIONS — horizontal scroll-snap carousel
+           New section revealed as the user scrolls down.
+        ----------------------------------------------------------------- *@
+        <section data-reveal class="mb-5">
+            <div class="d-flex justify-content-between align-items-end mb-3">
+                <div>
+                    <span class="section-eyebrow">Picked for you</span>
+                    <h2 class="h4 mb-0 mt-1">Recommended Destinations</h2>
+                </div>
+                <div class="d-none d-md-flex gap-2">
+                    <button type="button" class="scroller-arrow" id="destScrollLeft" aria-label="Scroll left">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <button type="button" class="scroller-arrow" id="destScrollRight" aria-label="Scroll right">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="destination-scroller" id="destinationScroller">
+                @if (Model?.RecommendedDestinations != null)
+                {
+                    @foreach (var dest in Model.RecommendedDestinations)
+                    {
+                        <div class="destination-card" style="background-image:url('@dest.ImageUrl')">
+                            @* asp-route-id appends ?id=... (or a route-templated
+                               /Explore/Details/5 style segment, depending on your
+                               route config) built from the tag helper, instead of
+                               you concatenating a query string by hand. *@
+                            <a asp-controller="Explore" asp-action="Details" asp-route-id="@dest.Id" class="stretched-link" aria-label="View @dest.Name"></a>
+                            <span class="price-tag">From @dest.PriceFrom.ToString("C0")</span>
+                            <button type="button" class="save-btn @(dest.IsSaved ? "saved" : "")" aria-label="Save @dest.Name to wishlist" onclick="event.preventDefault(); this.classList.toggle('saved')">
+                                <i class="bi @(dest.IsSaved ? "bi-heart-fill" : "bi-heart")"></i>
+                            </button>
+                            <div class="rating"><i class="bi bi-star-fill text-warning"></i> @dest.Rating.ToString("0.0") &middot; @dest.ReviewCount reviews</div>
+                            <h3>@dest.Name</h3>
+                            <div class="small opacity-75">@dest.Country</div>
+                        </div>
+                    }
+                }
+            </div>
+        </section>
+
+        @* -----------------------------------------------------------------
+           NOTIFICATIONS / RECENT ACTIVITY  +  TRAVEL TOOLS
+           Two independent widgets side by side: an activity feed on the
+           left, currency converter + packing checklist stacked on the
+           right. Both are "new functionality" revealed on scroll.
+        ----------------------------------------------------------------- *@
+        <section data-reveal class="mb-5">
+            <div class="row g-3">
+
+                @* --- Activity / notifications feed -------------------- *@
+                <div class="col-12 col-lg-6">
+                    <div class="d-flex justify-content-between align-items-end mb-3">
+                        <div>
+                            <span class="section-eyebrow">Stay in the loop</span>
+                            <h2 class="h4 mb-0 mt-1">Recent Activity</h2>
+                        </div>
+                        <a asp-controller="Notifications" asp-action="Index" class="small text-decoration-none">Mark all read</a>
+                    </div>
+
+                    <div class="activity-feed">
+                        @if (Model?.Activities != null && Model.Activities.Any())
+                        {
+                            @foreach (var activity in Model.Activities)
+                            {
+                                <div class="activity-item @(activity.IsUnread ? "unread" : "")">
+                                    <span class="activity-icon @activity.IconClass"><i class="bi @activity.Icon"></i></span>
+                                    <div class="flex-grow-1">
+                                        <div class="small">@activity.Message</div>
+                                        @if (!string.IsNullOrEmpty(activity.SubText))
+                                        {
+                                            <div class="text-secondary" style="font-size:0.78rem;">@activity.SubText</div>
+                                        }
+                                    </div>
+                                    <span class="activity-time">@activity.TimeAgo</span>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="text-center text-secondary py-4 small">You're all caught up — no new activity.</div>
+                        }
+                    </div>
+                </div>
+
+                @* --- Travel tools: currency converter + packing checklist --- *@
+                <div class="col-12 col-lg-6">
+                    <div class="mb-3">
+                        <span class="section-eyebrow">Trip tools</span>
+                        <h2 class="h4 mb-0 mt-1">Quick Utilities</h2>
+                    </div>
+
+                    <div class="row g-3">
+                        @* Currency converter — a client-side calculator. In a
+                           real app you'd fetch live FX rates from an API
+                           endpoint (e.g. Currency/ConvertAjax) instead of the
+                           hard-coded sample rates in the script below. *@
+                        <div class="col-12">
+                            <div class="tool-card">
+                                <div class="tool-card__icon"><i class="bi bi-currency-exchange"></i></div>
+                                <h3 class="h6">Currency Converter</h3>
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-5">
+                                        <label class="form-label small text-secondary mb-1" for="fxAmount">Amount</label>
+                                        <input type="number" min="0" value="100" class="form-control" id="fxAmount" />
+                                    </div>
+                                    <div class="col-3">
+                                        <label class="form-label small text-secondary mb-1" for="fxFrom">From</label>
+                                        <select class="form-select" id="fxFrom">
+                                            <option value="USD" selected>USD</option>
+                                            <option value="EUR">EUR</option>
+                                            <option value="GBP">GBP</option>
+                                            <option value="INR">INR</option>
+                                            <option value="JPY">JPY</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-1 d-flex justify-content-center">
+                                        <button type="button" class="swap-btn" id="fxSwap" aria-label="Swap currencies">
+                                            <i class="bi bi-arrow-left-right"></i>
+                                        </button>
+                                    </div>
+                                    <div class="col-3">
+                                        <label class="form-label small text-secondary mb-1" for="fxTo">To</label>
+                                        <select class="form-select" id="fxTo">
+                                            <option value="USD">USD</option>
+                                            <option value="EUR">EUR</option>
+                                            <option value="GBP">GBP</option>
+                                            <option value="INR" selected>INR</option>
+                                            <option value="JPY">JPY</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="mt-3 p-3 rounded-3" style="background:var(--teal-tint);">
+                                    <span class="text-secondary small">Converted amount</span>
+                                    <div class="stat-value" id="fxResult" style="font-size:1.5rem;">&mdash;</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        @* Packing checklist — plain checkboxes with a small
+                           progress bar driven by JS at the bottom of the page.
+                           asp-for is demonstrated in the comment below for
+                           when this becomes a real bound form field. *@
+                        <div class="col-12">
+                            <div class="tool-card">
+                                <div class="tool-card__icon"><i class="bi bi-list-check"></i></div>
+                                <h3 class="h6">Packing Checklist</h3>
+                                @* Example of what a *bound* checklist item would look like
+                                   with a real model (left here as a comment for reference):
+
+                                   <input asp-for="Checklist[i].IsPacked" class="form-check-input" />
+                                   <label asp-for="Checklist[i].ItemName"></label>
+                                   <span asp-validation-for="Checklist[i].ItemName"></span>
+
+                                   asp-for infers the id, name="Checklist[0].IsPacked", and
+                                   current value automatically from the model property. *@
+                                <div id="packingChecklist">
+                                    <div class="checklist-item">
+                                        <input class="form-check-input" type="checkbox" id="pk1" checked />
+                                        <label for="pk1">Passport &amp; travel documents</label>
+                                    </div>
+                                    <div class="checklist-item">
+                                        <input class="form-check-input" type="checkbox" id="pk2" checked />
+                                        <label for="pk2">Travel insurance confirmation</label>
+                                    </div>
+                                    <div class="checklist-item">
+                                        <input class="form-check-input" type="checkbox" id="pk3" />
+                                        <label for="pk3">Universal power adapter</label>
+                                    </div>
+                                    <div class="checklist-item">
+                                        <input class="form-check-input" type="checkbox" id="pk4" />
+                                        <label for="pk4">Currency &amp; travel cards</label>
+                                    </div>
+                                    <div class="checklist-item">
+                                        <input class="form-check-input" type="checkbox" id="pk5" />
+                                        <label for="pk5">Medication &amp; first-aid basics</label>
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between small text-secondary mt-2 mb-1">
+                                    <span>Progress</span>
+                                    <span id="checklistProgressLabel">2 / 5</span>
+                                </div>
+                                <div class="checklist-progress">
+                                    <div class="checklist-progress__bar" id="checklistProgressBar" style="width:40%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        @* -----------------------------------------------------------------
+           TRAVEL TIPS / INSPIRATION STRIP
+        ----------------------------------------------------------------- *@
+        <section data-reveal class="mb-2">
+            <div class="mb-3">
+                <span class="section-eyebrow">Before you go</span>
+                <h2 class="h4 mb-0 mt-1">Travel Tips &amp; Inspiration</h2>
+            </div>
+            <div class="row g-3">
+                <div class="col-12 col-md-4">
+                    <div class="tip-card">
+                        <div class="tip-icon"><i class="bi bi-suitcase2"></i></div>
+                        <h3 class="h6">Pack light, pack smart</h3>
+                        <p class="small text-secondary mb-0">Roll clothes instead of folding to save up to 30% more space in carry-on bags.</p>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <div class="tip-card">
+                        <div class="tip-icon"><i class="bi bi-shield-check"></i></div>
+                        <h3 class="h6">Screenshot your documents</h3>
+                        <p class="small text-secondary mb-0">Keep offline copies of your passport, visa, and insurance in case of lost connectivity.</p>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <div class="tip-card">
+                        <div class="tip-icon"><i class="bi bi-piggy-bank"></i></div>
+                        <h3 class="h6">Book flights on Tuesdays</h3>
+                        <p class="small text-secondary mb-0">Airline pricing tends to reset midweek, often surfacing the lowest fares of the cycle.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    @* =====================================================================
+       FOOTER
+    ===================================================================== *@
+    <footer class="site-footer py-4">
+        <div class="container d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span>&copy; @DateTime.Now.Year MyTravel. All rights reserved.</span>
+            <div class="d-flex gap-3">
+                <a asp-controller="Support" asp-action="Help">Help Center</a>
+                <a asp-controller="Legal" asp-action="Privacy">Privacy</a>
+                <a asp-controller="Legal" asp-action="Terms">Terms</a>
             </div>
         </div>
-    </div>
-</div>
+    </footer>
 
-<!-- Modal Structure hidden at the bottom of the page (Concept #5) -->
-<div class="modal fade" id="editBookingModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Edit Booking Details</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="editBookingForm">
-                    <div class="mb-3">
-                        <label class="form-label">Booking ID</label>
-                        <input type="text" id="modalBookingId" class="form-control" readonly />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Passenger Name</label>
-                        <input type="text" id="modalPassengerName" class="form-control" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Amount (₹)</label>
-                        <input type="number" id="modalAmount" class="form-control" />
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100">Save Changes (API Push)</button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-</body>
+    <button id="backToTop" aria-label="Back to top">
+        <i class="bi bi-arrow-up"></i>
+    </button>
 
-@section Scripts{
+    <!-- Bootstrap 5 JS bundle (includes Popper, needed for dropdowns/tabs) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Triggered when clicking the Edit button inside the table row
-        $('.edit-booking-btn').click(function() {
-            // 1. Pull data attributes preloaded into the clicked row button
-            var bookingId = $(this).data('id');
-            var name = $(this).data('name');
-            var amount = $(this).data('amount');
+        document.addEventListener('DOMContentLoaded', function () {
+            var returnDateWrap = document.getElementById('returnDateWrap');
+            var returnDateInput = document.getElementById('flightReturn');
 
-            // 2. Map those values instantly into the fields inside the hidden popup modal
-            $('#modalBookingId').val(bookingId);
-            $('#modalPassengerName').val(name);
-            $('#modalAmount').val(amount);
+            function syncReturnDateField() {
+                var isRoundTrip = document.getElementById('tripTypeRoundTrip').checked;
+                returnDateWrap.classList.toggle('d-none', !isRoundTrip);
+                returnDateInput.disabled = !isRoundTrip;
+                returnDateInput.required = isRoundTrip;
+            }
 
-            // 3. Show the modal on user's screen smoothly via Bootstrap javascript
-            var modal = new bootstrap.Modal(document.getElementById('editBookingModal'));
-            modal.show();
+            document.querySelectorAll('input[name="TripType"]').forEach(function (radio) {
+                radio.addEventListener('change', syncReturnDateField);
+            });
+            syncReturnDateField();
         });
     </script>
-}
+    @* =========================================================================
+       PAGE SCRIPT
+       Kept in one block for a page this size. In a real project this would
+       move to ~/js/dashboard.js and be referenced with:
+         <script src="~/js/dashboard.js"></script>
+       so it's cached separately from the HTML and can be minified/bundled.
+    ========================================================================= *@
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+
+            /* -----------------------------------------------------------
+               1) SCROLL-REVEAL
+               Every element with [data-reveal] starts hidden (see CSS).
+               IntersectionObserver watches each one and adds .is-visible
+               the moment 15% of it enters the viewport, then stops
+               watching that element (unobserve) so the effect only plays
+               once per page load — smooth, and cheap on performance since
+               nothing runs on every scroll tick.
+            ----------------------------------------------------------- */
+            var revealTargets = document.querySelectorAll('[data-reveal]');
+            if ('IntersectionObserver' in window && revealTargets.length) {
+                var revealObserver = new IntersectionObserver(function (entries, observer) {
+                    entries.forEach(function (entry) {
+                        if (entry.isIntersecting) {
+                            entry.target.classList.add('is-visible');
+                            observer.unobserve(entry.target);
+                        }
+                    });
+                }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+
+                revealTargets.forEach(function (el) { revealObserver.observe(el); });
+            } else {
+                // Fallback for very old browsers: just show everything.
+                revealTargets.forEach(function (el) { el.classList.add('is-visible'); });
+            }
+
+            /* -----------------------------------------------------------
+               2) BACK-TO-TOP BUTTON
+               Shows once the page has scrolled roughly one viewport down.
+            ----------------------------------------------------------- */
+            var backToTopBtn = document.getElementById('backToTop');
+            if (backToTopBtn) {
+                window.addEventListener('scroll', function () {
+                    if (window.scrollY > window.innerHeight * 0.6) {
+                        backToTopBtn.classList.add('show');
+                    } else {
+                        backToTopBtn.classList.remove('show');
+                    }
+                }, { passive: true });
+
+                backToTopBtn.addEventListener('click', function () {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+            }
+
+            /* -----------------------------------------------------------
+               3) DESTINATION CAROUSEL ARROW CONTROLS
+               Scrolls the flex container horizontally by roughly one
+               card's width per click; CSS scroll-snap handles alignment.
+            ----------------------------------------------------------- */
+            var scroller = document.getElementById('destinationScroller');
+            var scrollLeftBtn = document.getElementById('destScrollLeft');
+            var scrollRightBtn = document.getElementById('destScrollRight');
+            if (scroller && scrollLeftBtn && scrollRightBtn) {
+                var scrollAmount = function () { return scroller.clientWidth * 0.8; };
+                scrollLeftBtn.addEventListener('click', function () {
+                    scroller.scrollBy({ left: -scrollAmount(), behavior: 'smooth' });
+                });
+                scrollRightBtn.addEventListener('click', function () {
+                    scroller.scrollBy({ left: scrollAmount(), behavior: 'smooth' });
+                });
+            }
+
+            /* -----------------------------------------------------------
+               4) CURRENCY CONVERTER
+               Simple client-side conversion using sample fixed rates
+               (all relative to USD) purely for UI demonstration. Replace
+               ratesToUsd with a live call to your own Currency/Rates
+               endpoint in production — never hard-code FX rates for real
+               money calculations.
+            ----------------------------------------------------------- */
+            var ratesToUsd = { USD: 1, EUR: 1.08, GBP: 1.27, INR: 0.012, JPY: 0.0067 };
+            var fxAmount = document.getElementById('fxAmount');
+            var fxFrom = document.getElementById('fxFrom');
+            var fxTo = document.getElementById('fxTo');
+            var fxResult = document.getElementById('fxResult');
+            var fxSwap = document.getElementById('fxSwap');
+
+            function formatCurrency(value, code) {
+                try {
+                    return new Intl.NumberFormat(undefined, { style: 'currency', currency: code, maximumFractionDigits: 2 }).format(value);
+                } catch (e) {
+                    return value.toFixed(2) + ' ' + code;
+                }
+            }
+
+            function recalcFx() {
+                if (!fxAmount || !fxFrom || !fxTo || !fxResult) return;
+                var amount = parseFloat(fxAmount.value) || 0;
+                var usdValue = amount * ratesToUsd[fxFrom.value];
+                var converted = usdValue / ratesToUsd[fxTo.value];
+                fxResult.textContent = formatCurrency(converted, fxTo.value);
+            }
+
+            [fxAmount, fxFrom, fxTo].forEach(function (el) {
+                if (el) el.addEventListener('input', recalcFx);
+            });
+
+            if (fxSwap) {
+                fxSwap.addEventListener('click', function () {
+                    var temp = fxFrom.value;
+                    fxFrom.value = fxTo.value;
+                    fxTo.value = temp;
+                    recalcFx();
+                });
+            }
+
+            recalcFx(); // Run once on load so the widget isn't blank.
+
+            /* -----------------------------------------------------------
+               5) PACKING CHECKLIST PROGRESS
+               Recalculates the "x / y" label and progress bar width
+               whenever any checkbox in the list changes state.
+            ----------------------------------------------------------- */
+            var checklist = document.getElementById('packingChecklist');
+            var progressLabel = document.getElementById('checklistProgressLabel');
+            var progressBar = document.getElementById('checklistProgressBar');
+
+            function recalcChecklist() {
+                if (!checklist || !progressLabel || !progressBar) return;
+                var boxes = checklist.querySelectorAll('input[type="checkbox"]');
+                var total = boxes.length;
+                var checked = checklist.querySelectorAll('input[type="checkbox"]:checked').length;
+                var pct = total === 0 ? 0 : Math.round((checked / total) * 100);
+                progressLabel.textContent = checked + ' / ' + total;
+                progressBar.style.width = pct + '%';
+            }
+
+            if (checklist) {
+                checklist.addEventListener('change', recalcChecklist);
+                recalcChecklist();
+            }
+
+            /* -----------------------------------------------------------
+               6) CHARTS (Chart.js)
+               Data below is illustrative sample data written directly in
+               JS for this static preview. In your real view you would
+               replace the arrays with server-rendered JSON, e.g.:
+
+                 const spendLabels = @Html.Raw(Json.Serialize(Model.SpendLabels));
+                 const spendThisYear = @Html.Raw(Json.Serialize(Model.SpendThisYear));
+
+               Json.Serialize (from System.Text.Json, available via the
+               @@using Microsoft.AspNetCore.Mvc.Rendering / built-in Json
+               helper) turns your C# collection into a JSON array Chart.js
+               can consume directly, keeping the chart in sync with
+               whatever the controller/database actually returned.
+            ----------------------------------------------------------- */
+            var spendCtx = document.getElementById('spendChart');
+            if (spendCtx && window.Chart) {
+                new Chart(spendCtx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'],
+                        datasets: [
+                            {
+                                label: 'This year',
+                                data: [120, 190, 90, 340, 280, 500, 410, 460],
+                                borderColor: '#0E7C7B',
+                                backgroundColor: 'rgba(14,124,123,0.12)',
+                                tension: 0.35,
+                                fill: true,
+                                pointRadius: 3
+                            },
+                            {
+                                label: 'Last year',
+                                data: [80, 130, 120, 210, 190, 300, 260, 300],
+                                borderColor: '#FFD9C2',
+                                backgroundColor: 'transparent',
+                                borderDash: [5, 4],
+                                tension: 0.35,
+                                pointRadius: 0
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { grid: { color: '#E7ECEE' }, ticks: { callback: function (v) { return '$' + v; } } },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+
+            var tripTypeCtx = document.getElementById('tripTypeChart');
+            if (tripTypeCtx && window.Chart) {
+                new Chart(tripTypeCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Beach', 'City', 'Mountain', 'Cultural'],
+                        datasets: [{
+                            data: [8, 5, 3, 4],
+                            backgroundColor: ['#0E7C7B', '#E8735F', '#D9A441', '#8CA0A8'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '65%',
+                        plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } }
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

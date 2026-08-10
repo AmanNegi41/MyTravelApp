@@ -20,4 +20,8 @@
     <ProjectReference Include="..\MyTravelApp.Services\MyTravelApp.Services.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Views\PartialViews\" />
+  </ItemGroup>
+
 </Project>
