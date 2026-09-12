@@ -1,12 +1,8 @@
 ﻿@{
     ViewData["Title"] = "Login";
-    Layout = null;
 }
 
-
 <style>
- 
-
     :root {
         --primary: #4f46e5;
         --primary-hover: #4338ca;
@@ -28,6 +24,7 @@
         margin: 0;
         min-height: 100vh;
         font-family: 'Poppins', sans-serif;
+        background: var(--background);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -39,13 +36,12 @@
         align-items: center;
         justify-content: center;
         padding: 24px;
-        /* background-image: url('@Url.Content("~/Images/login2.jpg")') !important; */
     }
 
     .login-card {
         width: 100%;
         max-width: 400px;
-        background: #ffffff00;
+        background: var(--surface);
         border: 1px solid var(--border);
         border-radius: var(--radius);
         padding: 32px;
@@ -202,27 +198,10 @@
         color: var(--muted);
         font-size: 12px;
     }
-
-
-
-.login-bg-wrapper {
-        margin: 0;
-        min-height: 100vh;
-        font-family: 'Poppins', sans-serif;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background-image: url('@Url.Content("~/Images/login2.jpg")') !important;
-        background-size: cover;
-        background-repeat: no-repeat;
-        background-position: center;
-        width: 100%;
-    }
-
 </style>
 
-<!-- REMOVE <body> AND REPLACE WITH THIS WRAPPER DIV -->
-<div class="login-bg-wrapper">
+
+<body>
     <div class="login-page">
         <div class="login-card">
 
@@ -277,8 +256,7 @@
 
         </div>
     </div>
-</div>
-<!-- REMOVE </body> -->
+</body>
 
 <script>
     const passwordInput = document.getElementById("Password");
