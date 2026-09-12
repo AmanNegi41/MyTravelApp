@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using System.Runtime.InteropServices;
 using MyTravelApp.Services;
 using System.Text.Json;
+using MyTravelApp.Web.Models;
 
 namespace MyTravelApp.Web.Controllers
 {
@@ -22,11 +23,14 @@ namespace MyTravelApp.Web.Controllers
             return View();
         }
 
+
+
         public async Task<IActionResult> WeatherSearch(string location)
         {
-         var data = await _weatherSearchService.WeatherSearch(location);
-         var dt = JsonSerializer.Deserialize<object>(data);
-         return View(dt);
+            var data = await _weatherSearchService.WeatherSearch(location);
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            WeatherView dtList = JsonSerializer.Deserialize<WeatherView>(data, options);
+            return PartialView("_WeatherIndex", dtList);
         }
     }
 }
