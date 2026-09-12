@@ -1,0 +1,142 @@
+﻿@model MyTravelApp.Web.Models.WeatherView
+
+@{
+    Layout = "_Layout"; 
+    var weather = Model?.Weather?.FirstOrDefault();
+    double windSpeed = Model?.Wind?.Speed ?? 0;
+    string animationDuration = windSpeed > 0 ? $"{Math.Max(0.5, 3.5 - (windSpeed * 0.2)):F1}s" : "4s";
+}
+
+<style>
+    /* Weather Card Container */
+    .weather-card-container {
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+        max-width: 420px;
+        margin: 0 auto;
+        overflow: hidden;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+
+    /* Temp Hero Section */
+    .weather-temp-hero {
+        font-size: 3.75rem;
+        font-weight: 800;
+        letter-spacing: -2px;
+        color: #1e293b;
+        line-height: 1;
+    }
+
+    /* Metric Badges */
+    .metric-box {
+        background: rgba(241, 245, 249, 0.6);
+        border-radius: 14px;
+        padding: 12px;
+        transition: transform 0.2s ease;
+    }
+    .metric-box:hover {
+        transform: translateY(-2px);
+    }
+
+    /* GPU-Accelerated Zero-Lag Wind Animation */
+    .animated-wind-icon {
+        display: inline-block;
+        animation: spin-wind @animationDuration linear infinite;
+        will-change: transform; /* Hardware acceleration trigger */
+        transform-origin: center center;
+    }
+
+    .animated-breeze-lines {
+        animation: breeze-pulse 2s ease-in-out infinite alternate;
+        will-change: opacity, transform;
+    }
+
+    @@keyframes spin-wind {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    @@keyframes breeze-pulse {
+        0% { opacity: 0.4; transform: translateX(-2px); }
+        100% { opacity: 1; transform: translateX(2px); }
+    }
+</style>
+
+@if (Model != null && !string.IsNullOrEmpty(Model.CityName))
+{
+    <div class="weather-card-container p-4">
+        <!-- Header: City & Weather Tag -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h2 class="h4 fw-bold text-dark mb-0">@Model.CityName</h2>
+                <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-2 py-1 fs-7 text-capitalize mt-1">
+                    @(weather?.Description ?? "Clear")
+                </span>
+            </div>
+            @if (weather != null && !string.IsNullOrEmpty(weather.Icon))
+            {
+                <img src="https://openweathermap.org/img/wn/@(weather.Icon)@@2x.png" width="64" height="64" 
+                     alt="@weather.Description" 
+                     class="img-fluid" />
+            }
+        </div>
+
+        <!-- Temperature Display -->
+        <div class="text-center my-4">
+            <div class="weather-temp-hero">
+                @Math.Round(Model.Main?.Temp ?? 0)<span class="fs-2 text-secondary fw-normal">°C</span>
+            </div>
+            <p class="text-muted small mb-0 mt-1">
+                Feels like <span class="fw-semibold text-dark">@Math.Round(Model.Main?.FeelsLike ?? 0)°C</span>
+            </p>
+        </div>
+
+        <!-- Metrics Grid -->
+        <div class="row g-2 pt-2 border-top">
+            <!-- Humidity -->
+            <div class="col-6">
+                <div class="metric-box d-flex align-items-center">
+                    <svg class="me-2 text-info" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+                    </svg>
+                    <div>
+                        <div class="text-muted small lh-1">Humidity</div>
+                        <div class="fw-bold text-dark mt-1">@(Model.Main?.Humidity)%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Wind with Animated Fan / Breeze -->
+            <div class="col-6">
+                <div class="metric-box d-flex align-items-center">
+                    <div class="position-relative me-2 d-flex align-items-center justify-content-center">
+                        <!-- Smooth Rotating Wind Blade SVG -->
+                        <svg class="animated-wind-icon text-primary" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="2"></circle>
+                            <path d="M12 10c0-3.3 2.7-6 6-6 0 3.3-2.7 6-6 6z"></path>
+                            <path d="M10 12c-3.3 0-6 2.7-6 6 3.3 0 6-2.7 6-6z"></path>
+                            <path d="M14 12c3.3 0 6-2.7 6-6-3.3 0-6 2.7-6 6z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="text-muted small lh-1">Wind Speed</div>
+                        <div class="fw-bold text-dark mt-1">@(Model.Wind?.Speed) <span class="fw-normal text-muted fs-7">m/s</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="alert alert-light border rounded-3 text-center p-4">
+        <svg class="text-muted mb-2" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <p class="mb-0 text-muted">No weather details available for this location.</p>
+    </div>
+}

@@ -1,4 +1,6 @@
 using MyTravelApp.Data;
+using MyTravelApp.IServices;
+using MyTravelApp.Models.Models;
 using MyTravelApp.Services;
 
 namespace MyTravelApp.Web
@@ -8,36 +10,44 @@ namespace MyTravelApp.Web
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+
             var connString = builder.Configuration.GetConnectionString("MyConnection");
-            //builder.Services.AddDbContext<>
+
             builder.Services.AddScoped<DAL>(provider => new DAL(connString));
 
-            //below line i added the DI of BLL file
+            builder.Services.AddControllersWithViews();
+
             builder.Services.AddScoped<LoginRepository>();
 
-            // Add services to the container.
-            builder.Services.AddControllersWithViews();
+            // Configure RapidAPI options for Booking.com API
+            builder.Services.Configure<RapidApiOptions>(
+                builder.Configuration.GetSection("RapidApiOptions"));
+
+            // Register HttpClients
+            builder.Services.AddHttpClient<WeatherSearchService>();
+            builder.Services.AddHttpClient<IBookingComService, BookingComService>();
 
             var app = builder.Build();
 
-            // Configure the HTTP request pipeline.
             if (!app.Environment.IsDevelopment())
             {
                 app.UseExceptionHandler("/Home/Error");
-                // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
                 app.UseHsts();
             }
 
             app.UseHttpsRedirection();
+            app.UseStaticFiles();
             app.UseRouting();
 
             app.UseAuthorization();
 
             app.MapStaticAssets();
+
             app.MapControllerRoute(
                 name: "default",
-                pattern: "{controller=Login}/{action=Index}/{id?}")
-                .WithStaticAssets();
+                pattern: "{controller=Login}/{action=Index}/{id?}"
+            )
+            .WithStaticAssets();
 
             app.Run();
         }
