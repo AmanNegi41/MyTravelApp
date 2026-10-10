@@ -30,7 +30,6 @@ namespace MyTravelApp.Services
             _options = options.Value;
             _logger = logger;
             _cache = cache;
-
             _httpClient.BaseAddress = new Uri("https://apidojo-booking-v1.p.rapidapi.com/");
             _httpClient.DefaultRequestHeaders.Add("X-RapidAPI-Key", _options.ApiKey ?? string.Empty);
             _httpClient.DefaultRequestHeaders.Add("X-RapidAPI-Host", "apidojo-booking-v1.p.rapidapi.com");

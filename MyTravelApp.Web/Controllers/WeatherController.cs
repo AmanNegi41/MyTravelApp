@@ -25,12 +25,12 @@ namespace MyTravelApp.Web.Controllers
 
 
 
-        public async Task<IActionResult> WeatherSearch(string location)
-        {
-            var data = await _weatherSearchService.WeatherSearch(location);
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            WeatherView dtList = JsonSerializer.Deserialize<WeatherView>(data, options);
-            return PartialView("_WeatherIndex", dtList);
-        }
+        //public async Task<IActionResult> WeatherSearch(string location)
+        //{
+        //    var data = await _weatherSearchService .WeatherSearch(location);
+        //    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        //    WeatherView dtList = JsonSerializer.Deserialize<WeatherView>(data, options);
+        //    return PartialView("_WeatherIndex", dtList);
+        //}
     }
 }
