@@ -1,4 +1,5 @@
 FROM ://microsoft.com AS build
+
 WORKDIR /src
 
 # Copy everything from the repository root and restore dependencies
